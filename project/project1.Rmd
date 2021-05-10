@@ -52,8 +52,8 @@ library(kableExtra)
   
   
 ```{r}
-RaptorWAR2 <- read_csv("Downloads/RaptorWAR2.csv")
-PlayerBoxData <- read_csv("Downloads/PlayerBoxData.csv")
+RaptorWAR2 <- read_csv("RaptorWAR2.csv")
+PlayerBoxData <- read_csv("PlayerBoxData.csv")
 BoxData2 <- PlayerBoxData
 ```
 

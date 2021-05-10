@@ -5,24 +5,23 @@
     <link>/project/</link>
     <description>Recent content in Projects on Kushaal Vaidya</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-US</language>
-    <lastBuildDate>Tue, 01 Dec 2020 00:00:00 +0000</lastBuildDate><atom:link href="/project/index.xml" rel="self" type="application/rss+xml" />
+    <language>en-US</language><atom:link href="/project/index.xml" rel="self" type="application/rss+xml" />
     <item>
-      <title>Project 1</title>
+      <title>Project 1: Exploratory Data Analysis</title>
       <link>/project/project1/</link>
-      <pubDate>Tue, 01 Dec 2020 00:00:00 +0000</pubDate>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
       <guid>/project/project1/</guid>
-      <description> Test Project 1  </description>
+      <description>INTRODUCTION: Basketball Stats and Analytics There were two data sets used for this analysis: “Raptor WAR” and “Box” data sets, both of which list various statistics for NBA players. Sports analytics are one of my hobbies, so the prospect of being able to analyze this type of data was very interesting to me. The bulk of this data comes from the “Box” data set, which was scraped from the basketball data website “Basketball Reference”.</description>
     </item>
     
     <item>
-      <title>Project 2</title>
+      <title>Project 2: Modeling</title>
       <link>/project/project2/</link>
-      <pubDate>Tue, 01 Dec 2020 00:00:00 +0000</pubDate>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
       <guid>/project/project2/</guid>
-      <description> Test Project 2  </description>
+      <description>Introduction RaptorWAR2 &amp;lt;- read_csv(&amp;quot;RaptorWAR2.csv&amp;quot;) PlayerBoxData &amp;lt;- read_csv(&amp;quot;PlayerBoxData.csv&amp;quot;) BoxData2 &amp;lt;- PlayerBoxData BoxData2 &amp;lt;- select(BoxData2, -c(14:23)) playerdata &amp;lt;- inner_join(RaptorWAR2, BoxData2, by=&amp;quot;Player&amp;quot;) playerdata &amp;lt;- playerdata %&amp;gt;% mutate_all(~gsub(&amp;quot;PG-SG&amp;quot;, &amp;quot;SG&amp;quot;, .)) playerdata$RWAR &amp;lt;- as.numeric(as.character(playerdata$RWAR)) playerdata$Age &amp;lt;- as.numeric(as.character(playerdata$Age)) playerdata$Minutes &amp;lt;- as.numeric(as.character(playerdata$Minutes)) playerdata$`TS%` &amp;lt;- as.numeric(as.character(playerdata$`TS%`)) playerdata$`3PAr` &amp;lt;- as.numeric(as.character(playerdata$`3PAr`)) playerdata$FTr &amp;lt;- as.numeric(as.character(playerdata$FTr)) playerdata$`TRB%` &amp;lt;- as.numeric(as.character(playerdata$`TRB%`)) playerdata$`AST%` &amp;lt;- as.numeric(as.character(playerdata$`AST%`)) playerdata$`STL%` &amp;lt;- as.numeric(as.character(playerdata$`STL%`)) playerdata$`BLK%` &amp;lt;- as.numeric(as.character(playerdata$`BLK%`)) playerdata$`TOV%` &amp;lt;- as.numeric(as.character(playerdata$`TOV%`)) PlayerData2 &amp;lt;- select(playerdata, -c(12:13)) PlayerDataFinal &amp;lt;- PlayerData2 %&amp;gt;% mutate(EfficientScorer=ifelse(`TS%` &amp;gt; mean(`TS%`), 1, 0)) For this analysis, I used the same data set that I used in Project 1, individual statistics for 175 basketball players as well as their overall summary statistic, RAPTOR WAR.</description>
     </item>
     
   </channel>

@@ -7,7 +7,7 @@
     <meta name="author" content="Kushaal Vaidya" />
     
     <link rel="shortcut icon" type="image/x-icon" href="../../img/favicon.ico">
-    <title>Project 1</title>
+    <title>Project 1: Exploratory Data Analysis</title>
     <meta name="generator" content="Hugo 0.83.1" />
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <link rel="stylesheet" type="text/css" href="../../css/main.css" />
@@ -54,13 +54,13 @@
       <div class="container">
         <div class="blog-post">
           <h3>
-            <strong><a href="../../project/project1/">Project 1</a></strong>
+            <strong><a href="../../project/project1/">Project 1: Exploratory Data Analysis</a></strong>
           </h3>
         </div>
  
 <div class="blog-title">
           <h4>
-         December 1, 2020 
+         January 1, 0001 
             &nbsp;&nbsp;
             
           </h4>
@@ -70,10 +70,1165 @@
           <div class="panel-body">
             <div class="blogpost">
               
+<script src="../../rmarkdown-libs/kePrint/kePrint.js"></script>
+<link href="../../rmarkdown-libs/lightable/lightable.css" rel="stylesheet" />
 
 
-<div id="test-project-1" class="section level2">
-<h2>Test Project 1</h2>
+<div id="introduction-basketball-stats-and-analytics" class="section level2">
+<h2>INTRODUCTION: Basketball Stats and Analytics</h2>
+<p>There were two data sets used for this analysis: “Raptor WAR” and “Box” data sets, both of which list various statistics for NBA players. Sports analytics are one of my hobbies, so the prospect of being able to analyze this type of data was very interesting to me.
+The bulk of this data comes from the “Box” data set, which was scraped from the basketball data website “Basketball Reference”. This data set contains statistics regarding every NBA player who plays significant minutes, and the statistics are versions of traditional statistics, which have been modified to make them more accurate in representing a player’s actual value. The statistics are as follows:</p>
+<p>Player Name/Team/Age/Minutes Played: Self-Explanatory</p>
+<p>Position: A player can have one of 5 positions on a basketball team (PG, SG, SF, PF, C), and this position largely defines what his role on the court is.</p>
+<p>True Shooting (TS%): Points scored per scoring attempt divided by 100</p>
+<p>Three Point Attempt Rate (3PAr): Percentage of shots taken from three-point range.</p>
+<p>Free Throw Rate (FTr): Average number of free throw attempts per shot taken.</p>
+<p>Assist Percentage (AST%): Percentage of assists a player is responsible for while he is on the court.</p>
+<p>Total Rebound Percentage (TRB%): Percentage of available rebounds a player grabs while he is on the court.</p>
+<p>Steal Percentage (STL%): Percentage of opponent possessions that end with a player stealing the ball while he is on the court.</p>
+<p>Block Percentage (BLK%): Percentage of opponent possessions that include a player blocking a shot while he is on the court.</p>
+<p>Turnover Percentage (TOV%): Number of turnovers a player commits per 100 possessions.</p>
+<p>The second data set is pulled from FiveThirtyEight’s website and only tracks one statistic for players: RAPTOR WAR, abbreviated in this analysis as RWAR. RAPTOR is FiveThirtyEight’s summary metric which attempts to estimate a player’s overall value on the court (how good they are). The units used are WAR (Wins Above Replacement), which is an estimate of how many additional wins a player provides to his team, compared to a replacement (average) player. I chose these two, because I am interested in seeing if any statistics have a particularly high correlation with RAPTOR. Since scoring is the most direct and obvious way a player contributes to his team, and better players will generally play more, I’m expecting TS% and Minutes to have the highest correlation with RWAR of any statistic.</p>
+<pre class="r"><code>RaptorWAR2 &lt;- read_csv(&quot;RaptorWAR2.csv&quot;)
+PlayerBoxData &lt;- read_csv(&quot;PlayerBoxData.csv&quot;)
+BoxData2 &lt;- PlayerBoxData</code></pre>
+</div>
+<div id="tidying-fixing-the-data" class="section level2">
+<h2>TIDYING: Fixing the Data</h2>
+<p>Both data sets were already ready to join, because the two sites structured their data in very similar ways, and they didn’t have any variables in common besides the player name, so there was minimal effort needed to tidy the data before joining. Pivoting was not necessary for this part, but I used it later when creating my correlation matrix. Due to an importing error, the Box data set came with several empty columns, but I removed those before joining.</p>
+<pre class="r"><code>BoxData2 &lt;- select(BoxData2, -c(14:23))</code></pre>
+</div>
+<div id="joining-putting-it-together-making-it-useful" class="section level2">
+<h2>JOINING: Putting it Together, Making it Useful</h2>
+<p>I used an inner join on this data, because the only valuable information in the data would come from players who have both the box and WAR stats listed, so any other player wouldn’t be useful for the analysis. Many more players had WAR stats available than the box score stats, because the basketball reference website only listed 180 players while the WAR site listed 250. They had different barriers for what constituted significant minutes, and this did result in a decent chunk of players getting dropped from the WAR set. However, these players didn’t have enough minutes to make any significant impact on the Box data set, so the negative impact is minimal.</p>
+<p>After the join, there were 175 players listed which means some players were dropped from both data sets. While this slightly limits sample size, it is necessary to perform meaningful analysis when looking at the correlation between different box stats/info and WAR.
+In addition, one player (James Harden) was listed at both the PG and SG positions. Since he is regarded by the basketball community to play the SG position, I changed his position info from “PG-SG” to “SG”.
+One last note is that I realized, after my first attempt to manipulate this data, that all of the columns had been converted to character data type when I joined the data sets. Because of this, I retroactively converted every data type to numeric except name, position, and team.</p>
+<pre class="r"><code>playerdata &lt;- inner_join(RaptorWAR2, BoxData2, by = &quot;Player&quot;)
+playerdata &lt;- playerdata %&gt;% mutate_all(~gsub(&quot;PG-SG&quot;, &quot;SG&quot;, 
+    .))
+playerdata$RWAR &lt;- as.numeric(as.character(playerdata$RWAR))
+playerdata$Age &lt;- as.numeric(as.character(playerdata$Age))
+playerdata$Minutes &lt;- as.numeric(as.character(playerdata$Minutes))
+playerdata$`TS%` &lt;- as.numeric(as.character(playerdata$`TS%`))
+playerdata$`3PAr` &lt;- as.numeric(as.character(playerdata$`3PAr`))
+playerdata$FTr &lt;- as.numeric(as.character(playerdata$FTr))
+playerdata$`TRB%` &lt;- as.numeric(as.character(playerdata$`TRB%`))
+playerdata$`AST%` &lt;- as.numeric(as.character(playerdata$`AST%`))
+playerdata$`STL%` &lt;- as.numeric(as.character(playerdata$`STL%`))
+playerdata$`BLK%` &lt;- as.numeric(as.character(playerdata$`BLK%`))
+playerdata$`TOV%` &lt;- as.numeric(as.character(playerdata$`TOV%`))
+glimpse(playerdata)</code></pre>
+<pre><code>## Rows: 175
+## Columns: 14
+## $ Player   &lt;chr&gt; &quot;Nikola Jokic&quot;, &quot;Joel Embiid&quot;, &quot;Kawhi Leonard&quot;, &quot;Mike Conley…
+## $ RWAR     &lt;dbl&gt; 10.5, 6.5, 7.3, 5.8, 6.5, 5.3, 5.7, 6.8, 6.8, 6.6, 6.9, 6.3,…
+## $ Position &lt;chr&gt; &quot;C&quot;, &quot;C&quot;, &quot;SF&quot;, &quot;PG&quot;, &quot;SF&quot;, &quot;SF&quot;, &quot;C&quot;, &quot;PG&quot;, &quot;PF&quot;, &quot;C&quot;, &quot;SG&quot;…
+## $ Age      &lt;dbl&gt; 25, 26, 29, 33, 30, 31, 26, 21, 26, 28, 26, 32, 36, 31, 25, …
+## $ Team     &lt;chr&gt; &quot;DEN&quot;, &quot;PHI&quot;, &quot;LAC&quot;, &quot;UTA&quot;, &quot;LAC&quot;, &quot;MIA&quot;, &quot;ATL&quot;, &quot;DAL&quot;, &quot;MIL…
+## $ Minutes  &lt;dbl&gt; 1612, 1010, 1308, 1064, 1205, 1040, 1142, 1373, 1427, 1386, …
+## $ `TS%`    &lt;dbl&gt; 0.650, 0.650, 0.625, 0.590, 0.607, 0.584, 0.593, 0.592, 0.62…
+## $ `3PAr`   &lt;dbl&gt; 0.194, 0.161, 0.276, 0.523, 0.445, 0.131, 0.000, 0.381, 0.20…
+## $ FTr      &lt;dbl&gt; 0.257, 0.634, 0.332, 0.212, 0.224, 0.538, 0.303, 0.350, 0.53…
+## $ `TRB%`   &lt;dbl&gt; 17.7, 19.3, 10.2, 6.3, 10.5, 13.0, 26.6, 12.9, 17.8, 22.8, 6…
+## $ `AST%`   &lt;dbl&gt; 40.0, 17.4, 23.1, 27.6, 25.7, 37.4, 5.0, 46.1, 30.2, 6.0, 26…
+## $ `STL%`   &lt;dbl&gt; 2.2, 1.7, 2.6, 2.2, 1.7, 2.9, 1.3, 1.4, 1.7, 0.7, 2.3, 1.9, …
+## $ `BLK%`   &lt;dbl&gt; 1.7, 3.7, 1.2, 0.4, 1.2, 1.1, 6.6, 1.7, 3.3, 7.5, 2.0, 0.2, …
+## $ `TOV%`   &lt;dbl&gt; 12.7, 12.2, 8.1, 12.6, 14.6, 11.2, 9.7, 15.0, 13.9, 12.8, 9.…</code></pre>
+<pre class="r"><code>sapply(playerdata, class)</code></pre>
+<pre><code>##      Player        RWAR    Position         Age        Team     Minutes 
+## &quot;character&quot;   &quot;numeric&quot; &quot;character&quot;   &quot;numeric&quot; &quot;character&quot;   &quot;numeric&quot; 
+##         TS%        3PAr         FTr        TRB%        AST%        STL% 
+##   &quot;numeric&quot;   &quot;numeric&quot;   &quot;numeric&quot;   &quot;numeric&quot;   &quot;numeric&quot;   &quot;numeric&quot; 
+##        BLK%        TOV% 
+##   &quot;numeric&quot;   &quot;numeric&quot;</code></pre>
+</div>
+<div id="wrangling-data-discoveries" class="section level2">
+<h2>WRANGLING: Data Discoveries</h2>
+<p>For every variable in the data set, I attempted to narrow down what aspect of the variable would be the most relevant to a player’s value on the court, and selected a dplyr function based on that. I then went through each variable and piped it into the appropriate function, before piping it into a theme from the “Kable” package to make the table easier to read. I found many variables were very conveniently able to be grouped by team and position, which was helpful because it allowed comparisons across more levels than just individual players. I mutated the free throw rate variable to be a rate relative to league average (RelativeFTr), rather than only the absolute rate, because using relative statistics is vital to be able to extend the analysis across multiple eras where trends may differ.</p>
+<p>There were a few interesting results that were obtained from the wrangling. Firstly, I found that the most efficient scoring team in the NBA is the Brooklyn Nets. This confirmed a general belief the NBA community already had, because the Nets have three of the most talented offensive players in the league. I found that the Dallas Mavericks (the team I root for), have the highest three-point attempt rate in the league, which is again unsurprising, since their game plan revolves around one player drawing defensive attention and leaving three point shooters open. Next, I found that the San Antonio Spurs have the lowest standard deviation of minutes played of any team in the league. As one of the few teams in the NBA without a true star, they have no motivation to play a specific player more than any other, resulting in arguably the most balanced attack in the NBA. Finally, using my relative free throw rate metric, I found that Rudy Gobert has a free throw rate 168.5% higher than league average. This is a very dramatic outlier, and it is likely because Gobert is a very good scorer close to the basket, but a bad free throw shooter, so teams will foul him and risk the free throws rather than letting him score.</p>
+<pre class="r"><code>playerdata %&gt;% group_by(Team) %&gt;% summarize(mean_ts = mean(`TS%`)) %&gt;% 
+    arrange(desc(mean_ts)) %&gt;% head() %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+Team
+</th>
+<th style="text-align:right;">
+mean_ts
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+BRK
+</td>
+<td style="text-align:right;">
+0.6496000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+UTA
+</td>
+<td style="text-align:right;">
+0.6206667
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+LAC
+</td>
+<td style="text-align:right;">
+0.6068571
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PHO
+</td>
+<td style="text-align:right;">
+0.6058333
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+DEN
+</td>
+<td style="text-align:right;">
+0.5990000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SAC
+</td>
+<td style="text-align:right;">
+0.5966667
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% summarize(mean_ts = mean(`TS%`)) %&gt;% kbl() %&gt;% 
+    kable_material(c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:right;">
+mean_ts
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.5821143
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% group_by(Position) %&gt;% summarize(sd_trb = sd(`TRB%`)) %&gt;% 
+    arrange(desc(sd_trb)) %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+Position
+</th>
+<th style="text-align:right;">
+sd_trb
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+C
+</td>
+<td style="text-align:right;">
+4.175458
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PF
+</td>
+<td style="text-align:right;">
+2.965716
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PG
+</td>
+<td style="text-align:right;">
+2.834381
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SF
+</td>
+<td style="text-align:right;">
+2.414537
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SG
+</td>
+<td style="text-align:right;">
+1.927459
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% summarize(sd_trb = sd(`TRB%`)) %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:right;">
+sd_trb
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+4.453127
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% summarize(quantile(`AST%`)) %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:right;">
+quantile(<code>AST%</code>)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+3.00
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+8.00
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+13.40
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+23.05
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+46.60
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% filter(RWAR == max(RWAR)) %&gt;% select(Player, RWAR) %&gt;% 
+    kbl() %&gt;% kable_material(c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+Player
+</th>
+<th style="text-align:right;">
+RWAR
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Nikola Jokic
+</td>
+<td style="text-align:right;">
+10.5
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% summarize(max(Age), min(Age), median(Age)) %&gt;% 
+    kbl() %&gt;% kable_material(c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:right;">
+max(Age)
+</th>
+<th style="text-align:right;">
+min(Age)
+</th>
+<th style="text-align:right;">
+median(Age)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+37
+</td>
+<td style="text-align:right;">
+19
+</td>
+<td style="text-align:right;">
+26
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% mutate(relativeFTr = (FTr/mean(FTr) - 1)) %&gt;% 
+    filter(relativeFTr == max(relativeFTr)) %&gt;% select(Player, 
+    relativeFTr) %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, &quot;hover&quot;, 
+    &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+Player
+</th>
+<th style="text-align:right;">
+relativeFTr
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Rudy Gobert
+</td>
+<td style="text-align:right;">
+1.685134
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% group_by(Position) %&gt;% summarize(mean_stl = mean(`STL%`)) %&gt;% 
+    arrange(desc(mean_stl)) %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+Position
+</th>
+<th style="text-align:right;">
+mean_stl
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+PG
+</td>
+<td style="text-align:right;">
+1.805556
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SF
+</td>
+<td style="text-align:right;">
+1.573333
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SG
+</td>
+<td style="text-align:right;">
+1.514286
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PF
+</td>
+<td style="text-align:right;">
+1.497059
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+C
+</td>
+<td style="text-align:right;">
+1.224242
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% summarize(mean_stl = mean(`STL%`)) %&gt;% kbl() %&gt;% 
+    kable_material(c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:right;">
+mean_stl
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1.526286
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% group_by(Team) %&gt;% summarize(sd_min = sd(Minutes)) %&gt;% 
+    arrange(sd_min) %&gt;% head() %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+Team
+</th>
+<th style="text-align:right;">
+sd_min
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+SAS
+</td>
+<td style="text-align:right;">
+106.7858
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+LAL
+</td>
+<td style="text-align:right;">
+118.4048
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MEM
+</td>
+<td style="text-align:right;">
+123.1855
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+ORL
+</td>
+<td style="text-align:right;">
+127.0708
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NOP
+</td>
+<td style="text-align:right;">
+138.0763
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+OKC
+</td>
+<td style="text-align:right;">
+151.7455
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% summarize(sd_min = sd(Minutes)) %&gt;% kbl() %&gt;% 
+    kable_material(c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:right;">
+sd_min
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+213.6757
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% group_by(Position, Team) %&gt;% summarize(mean_three = mean(`3PAr`)) %&gt;% 
+    arrange(desc(mean_three)) %&gt;% head() %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+Position
+</th>
+<th style="text-align:left;">
+Team
+</th>
+<th style="text-align:right;">
+mean_three
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+SF
+</td>
+<td style="text-align:left;">
+PHI
+</td>
+<td style="text-align:right;">
+0.779
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SG
+</td>
+<td style="text-align:left;">
+GSW
+</td>
+<td style="text-align:right;">
+0.735
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SG
+</td>
+<td style="text-align:left;">
+IND
+</td>
+<td style="text-align:right;">
+0.732
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SG
+</td>
+<td style="text-align:left;">
+SAC
+</td>
+<td style="text-align:right;">
+0.730
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SF
+</td>
+<td style="text-align:left;">
+UTA
+</td>
+<td style="text-align:right;">
+0.719
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PF
+</td>
+<td style="text-align:left;">
+PHO
+</td>
+<td style="text-align:right;">
+0.710
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% summarize(mean_three = mean(`3PAr`)) %&gt;% kbl() %&gt;% 
+    kable_material(c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:right;">
+mean_three
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.38356
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% group_by(Position) %&gt;% summarize(mean_blk = mean(`BLK%`)) %&gt;% 
+    arrange(mean_blk) %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+Position
+</th>
+<th style="text-align:right;">
+mean_blk
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+PG
+</td>
+<td style="text-align:right;">
+0.8611111
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SG
+</td>
+<td style="text-align:right;">
+0.9642857
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SF
+</td>
+<td style="text-align:right;">
+1.5100000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PF
+</td>
+<td style="text-align:right;">
+1.8882353
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+C
+</td>
+<td style="text-align:right;">
+4.2272727
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% summarize(mean_blk = mean(`BLK%`)) %&gt;% kbl() %&gt;% 
+    kable_material(c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:right;">
+mean_blk
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1.831429
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="visualization-now-you-see-it" class="section level2">
+<h2>VISUALIZATION: Now You See It</h2>
+<div id="correlation-heatmap-which-stats-match-up" class="section level3">
+<h3>Correlation Heatmap: Which Stats Match Up?</h3>
+<p>This heatmap shows the correlations between every pair of numeric variables in the data set. The strongest correlation in the positive direction is TRB% and BLK%. This is likely because both rebounding and blocking duties are usually handled by the same group of players (whoever the tallest players on the court are). The strongest correlation in the negative direction is FTr and 3PAr. This is because, since being fouled behind the three point line gives three free throws instead of two, defenses play much safer at that distance, and players who are primarily three point shooters are much less likely to get fouled. TOV% and RWAR had a correlation of 0, likely because a high TOV% can come from a player who is careless with the ball (low RWAR) or a player who is trusted with the most passing responsibility and therefore has most of the turnovers (high RWAR). Finally, my prediction from the introduction that RWAR would be most strongly correlated with TS% and Minutes for the reasons I mentioned was supported by this heatmap.</p>
+<pre class="r"><code>corMatrix &lt;- playerdata %&gt;% select_if(is.numeric) %&gt;% cor(use = &quot;pair&quot;)
+tidycor &lt;- corMatrix %&gt;% as.data.frame %&gt;% rownames_to_column(&quot;var1&quot;) %&gt;% 
+    pivot_longer(-1, names_to = &quot;var2&quot;, values_to = &quot;correlation&quot;)
+tidycor %&gt;% ggplot(aes(var1, var2, fill = correlation)) + geom_tile() + 
+    geom_text(aes(label = round(correlation, 2)), color = &quot;black&quot;, 
+        size = 4) + xlab(&quot;Variables&quot;) + ylab(&quot;Variables&quot;) + ggtitle(&quot;Correlation Heatmap&quot;) + 
+    scale_fill_gradient2(low = &quot;green&quot;, mid = &quot;white&quot;, high = &quot;blue&quot;) + 
+    theme(plot.background = element_rect(fill = &quot;cyan&quot;))</code></pre>
+<p><img src="../../project/project1_files/figure-html/unnamed-chunk-6-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="shooting-efficiency-vs.-assist-rate-by-position-who-has-offensive-control" class="section level3">
+<h3>Shooting Efficiency vs. Assist Rate by Position: Who Has Offensive Control?</h3>
+<p>This plot displayed the relationships between shooting and assist rates for different positions. The most useful comparison to make for this analysis is between the C and PG positions, because they are on opposite ends of the spectrum in terms of their roles on an offense, and their distributions have the greatest difference of any of the five. PGs are the players in control of the offense. They take the ball down the court and decide what play to run, and will frequently make the first pass of the possession which is often the only pass before a shot, this is why their assist rates are so high. While they also shoot the ball frequently, the shots they take are often difficult shots when they can’t find an open player, so their scoring looks less efficient. Meanwhile, Cs are almost always the last person to receive the ball on offense whenever they do receive it. The idea, usually, is that they will catch the ball very close to the basket and either lay it up or dunk it. Because they rarely make a pass after getting the ball, their assist rates are very low. However, their scoring efficiency tends to be higher than PGs, because they take shots that are much closer to the basket and therefore are usually easier to make.</p>
+<pre class="r"><code>playerdata %&gt;% ggplot(aes(`TS%`, `AST%`)) + geom_point(size = 2, 
+    aes(color = Position)) + facet_wrap(~Position) + xlab(&quot;True Shooting (TS%)&quot;) + 
+    ylab(&quot;Assist Rate (AST%)&quot;) + ggtitle(&quot;Shooting Efficiency Vs. Assist Rate by Position&quot;) + 
+    theme_minimal() + theme(strip.background = element_rect(colour = &quot;black&quot;, 
+    fill = &quot;purple&quot;))</code></pre>
+<p><img src="../../project/project1_files/figure-html/unnamed-chunk-7-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="rwar-over-time-by-position-when-is-my-peak" class="section level3">
+<h3>RWAR Over Time by Position: When is My Peak?</h3>
+<p>This plot shows how the average value of players at different positions changes as they age. Most of these plots tend to be rough approximations of parabolas with peaks at around 25-28 years. This is when a player has been in the league for a few years and they are considered to be at their physical primes, so this is usually when their value is highest. Positions which rely the most on pure physical ability (Cs) tend to have the most obvious peak at this range and subsequent decline. However, other positions such as SG rely more on shooting the ball, which is a skill that doesn’t deteriorate with age. This is why the RWAR for SGs can stay very high as they age. Finally, the one exception to this rough parabola rule is PGs. As mentioned above, PGs are trusted with running the offense and being the main passers on the team. Not only does this not rely much on physical ability, it relies mainly on basketball IQ and decision making, which only improves with age. Therefore, PGs who are good enough to get significant minutes at older ages tend to be very good at decision making and then maximize their RWAR value because of it.</p>
+<pre class="r"><code>playerdata %&gt;% ggplot(aes(x = Age, y = RWAR)) + geom_point(size = 2, 
+    aes(color = Position), stat = &quot;summary&quot;, fun = mean) + geom_line(aes(y = RWAR), 
+    stat = &quot;summary&quot;, fun = mean) + facet_wrap(~Position) + scale_y_continuous(breaks = seq(-3, 
+    11, 2)) + scale_x_continuous(breaks = seq(18, 36, 2)) + xlab(&quot;Age(Years)&quot;) + 
+    ylab(&quot;Raptor WAR&quot;) + ggtitle(&quot;Age Vs. Raptor WAR by Position&quot;) + 
+    theme_minimal() + theme(strip.background = element_rect(colour = &quot;black&quot;, 
+    fill = &quot;green&quot;))</code></pre>
+<p><img src="../../project/project1_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+</div>
+<div id="dimensionality-reduction-the-player-classes" class="section level2">
+<h2>DIMENSIONALITY REDUCTION: The Player Classes</h2>
+<div id="rwar-and-ts-scoring-is-king" class="section level3">
+<h3>RWAR and TS%: Scoring is King</h3>
+<p>For my first PAM clustering, I decided to compare RWAR and TS%. RWAR is the overall summary statistic included in this dataset, and TS% is the variable it is most strongly correlated with. The maximum silhouette width occurred with 5 clusters, and this width was 0.564, indicating a reasonably strong structure. The relationship between the clusters was generally trending in the positive direction, as expected. However, there were two instances which violated the positive trend when comparing players representative of the medoids of the clusters.</p>
+<p>Firstly, Isaiah Roby’s cluster (lowest RWAR), actually had a higher medoid TS% than the next two clusters over. This is because of the outlier of Deandre Jordan. He has the highest TS% of anyone in the league, but he isn’t very good at anything else. This results in him having a negative RWAR despite the highest TS% in the league, significantly increasing the medoid TS%. The other instance is that Paul George’s cluster (highest RWAR) actually has a slightly lower medoid TS% than the cluster that precedes it. Even the mean TS% for that cluster is barely higher than the one that precedes it. This is because, at that level of RWAR, players are responsible for a lot of both scoring and passing, and with higher a volume of shots players can’t be as selective about waiting for ideal wide open shots. Players at this level have to take difficult shots that they may not be able to make, dropping their TS% despite them likely being among the best scorers in the league. The other reason for this is the outlier of Nikola Jokic. He has far and away the largest RWAR, but, due to him being an extreme example of the problem mentioned previously, he has only an average TS% among his cluster, dropping the medoid TS% down.</p>
+<pre class="r"><code>library(cluster)
+pam_dat &lt;- playerdata %&gt;% select(RWAR, `TS%`)
+sil_width &lt;- vector()
+for (i in 2:10) {
+    pam_fit &lt;- pam(pam_dat, k = i)
+    sil_width[i] &lt;- pam_fit$silinfo$avg.width
+}
+ggplot() + geom_line(aes(x = 1:10, y = sil_width)) + scale_x_continuous(name = &quot;k&quot;, 
+    breaks = 1:10)</code></pre>
+<p><img src="../../project/project1_files/figure-html/unnamed-chunk-9-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>library(cluster)
+pam1 &lt;- playerdata %&gt;% select(RWAR, `TS%`) %&gt;% pam(k = 5)
+pamclust &lt;- playerdata %&gt;% mutate(cluster = as.factor(pam1$clustering))
+pamclust %&gt;% ggplot(aes(RWAR, `TS%`, color = cluster)) + geom_point()</code></pre>
+<p><img src="../../project/project1_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>pamclust %&gt;% group_by(cluster) %&gt;% select(cluster, RWAR, `TS%`) %&gt;% 
+    summarize_if(is.numeric, mean, na.rm = T) %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+cluster
+</th>
+<th style="text-align:right;">
+RWAR
+</th>
+<th style="text-align:right;">
+TS%
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+1
+</td>
+<td style="text-align:right;">
+6.5500000
+</td>
+<td style="text-align:right;">
+0.6093750
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2
+</td>
+<td style="text-align:right;">
+3.7205128
+</td>
+<td style="text-align:right;">
+0.6073077
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+3
+</td>
+<td style="text-align:right;">
+2.1897959
+</td>
+<td style="text-align:right;">
+0.5867551
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+4
+</td>
+<td style="text-align:right;">
+0.8204545
+</td>
+<td style="text-align:right;">
+0.5664318
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+5
+</td>
+<td style="text-align:right;">
+-0.7000000
+</td>
+<td style="text-align:right;">
+0.5467037
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% slice(pam1$id.med) %&gt;% select(Player, RWAR, `TS%`) %&gt;% 
+    kbl() %&gt;% kable_material(c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+Player
+</th>
+<th style="text-align:right;">
+RWAR
+</th>
+<th style="text-align:right;">
+TS%
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Paul George
+</td>
+<td style="text-align:right;">
+6.5
+</td>
+<td style="text-align:right;">
+0.607
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Harrison Barnes
+</td>
+<td style="text-align:right;">
+3.7
+</td>
+<td style="text-align:right;">
+0.610
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Gordon Hayward
+</td>
+<td style="text-align:right;">
+2.1
+</td>
+<td style="text-align:right;">
+0.588
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Reggie Bullock
+</td>
+<td style="text-align:right;">
+0.8
+</td>
+<td style="text-align:right;">
+0.563
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Isaiah Roby
+</td>
+<td style="text-align:right;">
+-0.6
+</td>
+<td style="text-align:right;">
+0.589
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>pam1$silinfo$avg.width %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:right;">
+x
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.5635349
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="ast-and-tov-the-passing-hierarchy" class="section level3">
+<h3>AST% and TOV% : The Passing Hierarchy</h3>
+<p>For my second PAM clustering, I decided to compare AST% and TOV%. These two metrics are often paired together in basketball analyses, to serve as an estimate for how good someone is at passing. The theory is that most turnovers result from stolen passes, which will often occur when a pass is poorly timed or aimed. They are often compared as a ratio to account for players who pass a lot and will have very high numbers for both statistics. The data divided surprisingly neatly into the two clusters. This is because, in the current NBA, most passing attacks will have certain players be responsible for most of the passing, rather than equally dividing it. This is why there are the fewest data points around the 15-20% range, since 20% is 1/5th of 100% and there are 5 players per team on the court. Because a larger share of passing is done by a select group of players, there are many more data points in the lower AST% cluster than the higher one. As expected, ignoring the outlier players who are either amazing or terrible passers, AST% and TOV% tend to increase together.</p>
+<pre class="r"><code>pam_dat &lt;- playerdata %&gt;% select(`AST%`, `TOV%`)
+sil_width &lt;- vector()
+for (i in 2:10) {
+    pam_fit &lt;- pam(pam_dat, k = i)
+    sil_width[i] &lt;- pam_fit$silinfo$avg.width
+}
+ggplot() + geom_line(aes(x = 1:10, y = sil_width)) + scale_x_continuous(name = &quot;k&quot;, 
+    breaks = 1:10)</code></pre>
+<p><img src="../../project/project1_files/figure-html/unnamed-chunk-11-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>library(cluster)
+pam1 &lt;- playerdata %&gt;% select(`AST%`, `TOV%`) %&gt;% pam(k = 2)
+pamclust &lt;- playerdata %&gt;% mutate(cluster = as.factor(pam1$clustering))
+pamclust %&gt;% ggplot(aes(`AST%`, `TOV%`, color = cluster)) + geom_point()</code></pre>
+<p><img src="../../project/project1_files/figure-html/unnamed-chunk-12-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>pamclust %&gt;% group_by(cluster) %&gt;% select(cluster, `AST%`, `TOV%`) %&gt;% 
+    summarize_if(is.numeric, mean, na.rm = T) %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+cluster
+</th>
+<th style="text-align:right;">
+AST%
+</th>
+<th style="text-align:right;">
+TOV%
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+1
+</td>
+<td style="text-align:right;">
+27.872727
+</td>
+<td style="text-align:right;">
+13.60455
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2
+</td>
+<td style="text-align:right;">
+9.711927
+</td>
+<td style="text-align:right;">
+10.99817
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% slice(pam1$id.med) %&gt;% select(Player, `AST%`, 
+    `TOV%`) %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, &quot;hover&quot;, 
+    &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+Player
+</th>
+<th style="text-align:right;">
+AST%
+</th>
+<th style="text-align:right;">
+TOV%
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Delon Wright
+</td>
+<td style="text-align:right;">
+25.9
+</td>
+<td style="text-align:right;">
+12.7
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Sterling Brown
+</td>
+<td style="text-align:right;">
+9.1
+</td>
+<td style="text-align:right;">
+10.8
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>pam1$silinfo$avg.width %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:right;">
+x
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.5780544
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="rwar-and-minutes-better-players-play-more" class="section level3">
+<h3>RWAR and Minutes: Better Players Play More</h3>
+<p>For my final PAM clustering, I decided to compare RWAR and Minutes. Minutes was the other variable besides TS% which was most highly correlated with RWAR, and I was interested to see how accurately teams rewarded positive contributions on the court with more playing time. Like before, although less cleanly, the data fell into two clusters at the maximum silhouette with. The average silhouette with for two clusters was 0.611, indicating a reasonably strong structure. Again as expected, higher minutes generally correlated to higher RWAR since better players tend to get more playing time, but the main thing to notice about the two clusters is that the higher minutes cluster is much more spread out than the lower minutes cluster. This makes sense considering that more time on the court equals more time to either help or hurt your team, but it is interesting to note that the higher minutes cluster contains not only the highest but the lowest data points for RWAR out of the entire data set.</p>
+<p>The biggest outlier in this regard is Anthony Edwards, a rookie SG for the Minnesota Timberwolves, who was the first overall pick in the NBA draft last year. He has a league-worst RWAR of -2.2 while having been given over 1400 minutes of playing time. The reasons for this are fairly nuanced and can’t be captured by data very effectively. The Timberwolves are the worst team in the league, and are effectively out of the playoff race for this season, so have shifted their attention to developing young talent including Edwards, who they hope can become a future star for them. Because of a lack of talented veterans who can help him grow off the court, and because they can safely deprioritize winning now that they’re out of the race, Minnesota has decided to help Edwards develop by maximizing his on court playing time. This data set only captures the league at a single moment in time, so it can’t possibly show this, but the league consensus is that Edwards has actually made dramatic improvements over the course of the season, putting him squarely in contention for the Rookie of the Year award, despite having the lowest RWAR in the league, demonstrating the importance of keeping context in mind when looking at any set of statistics.</p>
+<pre class="r"><code>pam_dat &lt;- playerdata %&gt;% select(Minutes, RWAR)
+sil_width &lt;- vector()
+for (i in 2:10) {
+    pam_fit &lt;- pam(pam_dat, k = i)
+    sil_width[i] &lt;- pam_fit$silinfo$avg.width
+}
+ggplot() + geom_line(aes(x = 1:10, y = sil_width)) + scale_x_continuous(name = &quot;k&quot;, 
+    breaks = 1:10)</code></pre>
+<p><img src="../../project/project1_files/figure-html/unnamed-chunk-13-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>library(cluster)
+pam1 &lt;- playerdata %&gt;% select(Minutes, RWAR) %&gt;% pam(k = 2)
+pamclust &lt;- playerdata %&gt;% mutate(cluster = as.factor(pam1$clustering))
+pamclust %&gt;% ggplot(aes(Minutes, RWAR, color = cluster)) + geom_point()</code></pre>
+<p><img src="../../project/project1_files/figure-html/unnamed-chunk-14-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>pamclust %&gt;% group_by(cluster) %&gt;% select(cluster, Minutes, RWAR) %&gt;% 
+    summarize_if(is.numeric, mean, na.rm = T) %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+cluster
+</th>
+<th style="text-align:right;">
+Minutes
+</th>
+<th style="text-align:right;">
+RWAR
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+1
+</td>
+<td style="text-align:right;">
+1396.458
+</td>
+<td style="text-align:right;">
+3.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2
+</td>
+<td style="text-align:right;">
+1027.650
+</td>
+<td style="text-align:right;">
+1.537864
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>playerdata %&gt;% slice(pam1$id.med) %&gt;% select(Player, Minutes, 
+    RWAR) %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, &quot;hover&quot;, 
+    &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:left;">
+Player
+</th>
+<th style="text-align:right;">
+Minutes
+</th>
+<th style="text-align:right;">
+RWAR
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Robert Covington
+</td>
+<td style="text-align:right;">
+1389
+</td>
+<td style="text-align:right;">
+3.8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+T.J. McConnell
+</td>
+<td style="text-align:right;">
+1037
+</td>
+<td style="text-align:right;">
+2.5
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>pam1$silinfo$avg.width %&gt;% kbl() %&gt;% kable_material(c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;))</code></pre>
+<table class=" lightable-material lightable-striped lightable-hover" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<thead>
+<tr>
+<th style="text-align:right;">
+x
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.6108484
+</td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 
             

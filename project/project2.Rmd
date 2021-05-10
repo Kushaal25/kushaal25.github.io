@@ -1,8 +1,273 @@
 ---
-title: "Project 2"
-author: "Me"
-date: "2020-12-01"
-output: html_document
+title: "Project 2: Modeling"
+author: "Kushaal Vaidya (kkv332)"
+date: "5/6/2021"
+output:
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: yes
+  pdf_document:
+    toc: yes
 ---
 
-## Test Project 2
+```{r setup, include=FALSE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,fig.align="center",warning=FALSE,message=FALSE,fig.width=8, fig.height=5, linewidth=60)
+options(tibble.width = 100,width = 100)
+library(tidyverse)
+library(dplyr)
+library(lmtest)
+library(plotROC)
+library(sandwich)
+library(ggplot2)
+library(vegan)
+library(rstatix)
+library(glmnet)
+class_diag<-function(probs,truth){
+  
+  tab<-table(factor(probs>.5,levels=c("FALSE","TRUE")),truth)
+  acc=sum(diag(tab))/sum(tab)
+  sens=tab[2,2]/colSums(tab)[2]
+  spec=tab[1,1]/colSums(tab)[1]
+  ppv=tab[2,2]/rowSums(tab)[2]
+
+  if(is.numeric(truth)==FALSE & is.logical(truth)==FALSE) truth<-as.numeric(truth)-1
+  
+  #CALCULATE EXACT AUC
+  ord<-order(probs, decreasing=TRUE)
+  probs <- probs[ord]; truth <- truth[ord]
+  
+  TPR=cumsum(truth)/max(1,sum(truth)) 
+  FPR=cumsum(!truth)/max(1,sum(!truth))
+  
+  dup<-c(probs[-1]>=probs[-length(probs)], FALSE)
+  TPR<-c(0,TPR[!dup],1); FPR<-c(0,FPR[!dup],1)
+  
+  n <- length(TPR)
+  auc<- sum( ((TPR[-1]+TPR[-n])/2) * (FPR[-1]-FPR[-n]) )
+
+  data.frame(acc,sens,spec,ppv,auc)
+}
+```
+
+# Introduction
+
+```{r}
+RaptorWAR2 <- read_csv("RaptorWAR2.csv")
+PlayerBoxData <- read_csv("PlayerBoxData.csv")
+BoxData2 <- PlayerBoxData
+BoxData2 <- select(BoxData2, -c(14:23))
+playerdata <- inner_join(RaptorWAR2, BoxData2, by="Player")
+playerdata <- playerdata %>% mutate_all(~gsub("PG-SG", "SG", .))
+playerdata$RWAR <- as.numeric(as.character(playerdata$RWAR))
+playerdata$Age <- as.numeric(as.character(playerdata$Age))
+playerdata$Minutes <- as.numeric(as.character(playerdata$Minutes))
+playerdata$`TS%` <- as.numeric(as.character(playerdata$`TS%`))
+playerdata$`3PAr` <- as.numeric(as.character(playerdata$`3PAr`))
+playerdata$FTr <- as.numeric(as.character(playerdata$FTr))
+playerdata$`TRB%` <- as.numeric(as.character(playerdata$`TRB%`))
+playerdata$`AST%` <- as.numeric(as.character(playerdata$`AST%`))
+playerdata$`STL%` <- as.numeric(as.character(playerdata$`STL%`))
+playerdata$`BLK%` <- as.numeric(as.character(playerdata$`BLK%`))
+playerdata$`TOV%` <- as.numeric(as.character(playerdata$`TOV%`))
+PlayerData2 <- select(playerdata, -c(12:13))
+PlayerDataFinal <- PlayerData2 %>% mutate(EfficientScorer=ifelse(`TS%` > mean(`TS%`), 1, 0))
+```
+
+For this analysis, I used the same data set that I used in Project 1, individual statistics for 175 basketball players as well as their overall summary statistic, RAPTOR WAR. However, I made a few changes to the data set. Firstly, I removed the steal and block percentage statistics from the data. In the last analysis, they didn't have many significant relationships with other statistics which merited further exploration, and steals and blocks are also more random and inconsistent occurences than the other stats tracked in the data, so I removed them. I also added a binary statistic called "EfficientScorer". This statistic tracks whether a player scores at a rate above or below average league efficiency (mean TS%). The other statistics are defined as follows:
+  
+  Player Name/Team/Age/Minutes Played: Self-Explanatory
+  
+  Position: A player can have one of 5 positions on a basketball team (PG, SG, SF,    PF, C), and this position largely defines what his role on the court is.
+  
+  True Shooting (TS%): Points scored per scoring attempt divided by 100
+  
+  Three Point Attempt Rate (3PAr): Percentage of shots taken from three-point range.
+  
+  Free Throw Rate (FTr): Average number of free throw attempts per shot taken.
+  
+  Assist Percentage (AST%): Percentage of assists a player is responsible for while he is on the court.
+  
+  Total Rebound Percentage (TRB%): Percentage of available rebounds a player grabs while he is on the court.
+  
+  Turnover Percentage (TOV%): Number of turnovers a player commits per 100 possessions.
+  
+  RAPTOR WAR: Estimate of additional wins a player adds to a team compared to a replacement (average) player.
+
+# Part 1: MANOVAs, ANOVAs, and T-Tests
+```{r}
+man1<-manova(cbind(`RWAR`,`Age`,`Minutes`,`TS%`,`3PAr`,`FTr`,`TRB%`,`AST%`,`TOV%`)~Position, data=PlayerDataFinal)
+summary(man1)
+summary.aov(man1)
+pairwise.t.test(PlayerDataFinal$`TS%`, PlayerDataFinal$`Position`, p.adj = "none")
+pairwise.t.test(PlayerDataFinal$`3PAr`, PlayerDataFinal$`Position`, p.adj = "none")
+pairwise.t.test(PlayerDataFinal$`FTr`, PlayerDataFinal$`Position`, p.adj = "none")
+pairwise.t.test(PlayerDataFinal$`TRB%`, PlayerDataFinal$`Position`, p.adj = "none")
+pairwise.t.test(PlayerDataFinal$`AST%`, PlayerDataFinal$`Position`, p.adj = "none")
+pairwise.t.test(PlayerDataFinal$`TOV%`, PlayerDataFinal$`Position`, p.adj = "none")
+0.05 / 70
+1 - (0.95^70)
+```
+
+I performed a MANOVA to check if there were any significant differences in means of numeric variables across levels. The resulting p-value was less than .05 so I proceeded to do univariate ANOVAs for every numeric variable. 6 had a p-value less than .05, so I did post-hoc t-tests on all of those. In all, 70 tests were performed (1 MANOVA, 9 ANOVAs, and 60 post-hoc t-tests). With that number of tests, there is a 97.24% chance of a type I error using .05 as alpha. The corrected Bonferroni statistic is roughly 0.000714 or 7.14e-04. Values which are significantly different under this new threshold include: 
+
+-TS% for Cs compared to PFs/PGs/SGs 
+
+-3PAr for Cs compared to every other position 
+
+-FTr for Cs compared to SFs and SGs 
+
+-TRB% for Cs compared to every other position
+
+-TRB% for PFs compared to PGs and SGs
+
+-AST% for PGs compared to every other position
+
+Cs had significant differences with all other positions across most variables, because C is an extremely unique position on the basketball court, and has a job with very different priorities, namely a deprioritization of scoring except as a last option in almost all cases. PGs are the primary passers in basketball, and have a much larger share of passes than any other position, which is why they have a significantly different mean AST% compared to every other position. Normality/Linearity/Homogeneity distributions are not likely to be met, because on every team, there are generally 1 or 2 players who have the team operate around them, and they rack up most of the statistics. However, because the minutes discrepancy between starter level players usually isn't too great, the no extreme outliers assumption is likely to be met.
+
+# Part 2: Randomization Testing
+
+```{r}
+PlayerDataSGC <- PlayerDataFinal %>% filter(Position == "SG" | Position == "C")
+rand_dist <- vector()
+for (i in 1:5000){
+  new <- data.frame(`AST%` = sample(PlayerDataSGC$`AST%`), Position = PlayerDataSGC$Position)
+  rand_dist[i] <- mean(new[new$Position == "SG", ]$AST.) - mean(new[new$Position == "C", ]$AST.)
+}
+PlayerDataSGC %>% group_by(Position) %>% summarize(means = mean(`AST%`)) %>% summarize(mean_diff = diff(means))
+mean(rand_dist > 4.988745 | rand_dist < -4.988745)
+{hist(rand_dist,main="",ylab=""); abline(v = c(-4.988745, 4.988745), col="blue")}
+```
+I decided to test for the mean difference in assist rate between C's and SG's, because while both positions deepmhasize passing, their relationship showed significanct difference in mean assist rate in the previous post-hoc t-test, prompting me to explore further. The null hypothesis is that there is no significant difference in mean assist rate between C's and SG's, whereas the alternative hypothesis is that there is a significant difference. Using a randomization difference in means test, the test statistic for mean difference in assist rate was 4.988, with a p-value of 0.0072. Graphing this statistic shows it's significance, as almost the entire sampling distribution (99.28%) is contained within the confines of the positive and negative test statistics. 
+
+# Part 3: Linear Regression
+
+```{r}
+PlayerDataFinal$RWAR_c <- PlayerDataFinal$RWAR - mean(PlayerDataFinal$RWAR)
+PlayerDataFinal$TS_c <- PlayerDataFinal$`TS%` - mean(PlayerDataFinal$`TS%`)
+PlayerDataFinal$AST_c <- PlayerDataFinal$`AST%` - mean(PlayerDataFinal$`AST%`)
+fit<-lm(`RWAR_c`~`TS_c`*`AST_c`, data= PlayerDataFinal)
+summary(fit)
+PlayerDataFinal %>% select(RWAR_c, TS_c, AST_c) %>% na.omit %>% ggplot(aes(TS_c, RWAR_c, color=AST_c))+
+geom_point()+geom_smooth(method="lm")+ geom_vline(xintercept=mean(PlayerDataFinal$TS_c,na.rm=T),lty=2)
+resids<-fit$residuals
+fitvals<-fit$fitted.values
+ggplot()+geom_point(aes(fitvals,resids))+geom_hline(yintercept=0, color='red')
+ks.test(resids, "pnorm", mean=0, sd(resids))
+coeftest(fit, vcov = vcovHC(fit))
+```
+In my previous analysis, TS and AST were two of the strongest variables in terms of correlation to RWAR, so I was curious to run a linear regression with those two as the explanatory variables. 43.8% of the variation in Raptor WAR can be explained by TS% and AST%, as well as their interaction. Increasing TS% by 1 percentage point at mean AST% leads to a predicted RWAR increase of 21.462. Meanwhile, increasing AST% by 1 percentage point at mean TS% leads to a predicted RWAR increase of 0.095. Finally, the effect of TS% on RWAR increases by 0.771 for every unit increase in AST%. Using the robust SEs increased the p-values of every coefficient fairly noticeably, by multiple orders of magnitude. While this made minimal difference for TS and AST, the interaction crossed the 0.01 significance threshold (from .0016 to 0.036).
+
+# Part 4: Linear Regression II (Bootstrapped SE's)
+
+```{r}
+PlayerDataFinal$RWAR_c <- PlayerDataFinal$RWAR - mean(PlayerDataFinal$RWAR)
+PlayerDataFinal$TS_c <- PlayerDataFinal$`TS%` - mean(PlayerDataFinal$`TS%`)
+PlayerDataFinal$AST_c <- PlayerDataFinal$`AST%` - mean(PlayerDataFinal$`AST%`)
+samp_distn <- replicate(5000, {
+  boot_dat <- sample_frac(PlayerDataFinal, replace=T)
+  bootFit<-lm(`RWAR_c`~`TS_c`*`AST_c`, data=boot_dat)
+  coef(bootFit)
+})
+samp_distn %>% t %>% as.data.frame %>% summarize_all(sd)
+```
+
+The bootstrapped SE's were significantly greater than the original SE's, but were all slightly lower than the robust SE's. It followed that the p-values were also noticeably greater than the original p-values, but slightly lower than the robust p-values.
+
+# Part 5: Logistic Regression I
+
+```{r}
+fit <- glm(EfficientScorer~RWAR + Minutes, data=PlayerDataFinal, family = binomial(link = "logit"))
+exp(coef(fit))
+probs <- predict(fit, type="response")
+class_diag(probs,PlayerDataFinal$EfficientScorer)
+table(predict=as.numeric(probs>.5),truth=PlayerDataFinal$EfficientScorer) %>% addmargins
+ROCplot<-ggplot(PlayerDataFinal)+geom_roc(aes(d=EfficientScorer,m=RWAR + Minutes), n.cuts=0)
+ROCplot
+calc_auc(ROCplot)
+PlayerDataFinal$logit <- predict(fit,type="link")
+PlayerDataFinal %>% mutate(EfficientScorer=as.factor(EfficientScorer)) %>% ggplot() + geom_density(aes(logit, fill=EfficientScorer), alpha = 0.4)
+```
+I created a logistic regression model using RWAR and Minutes to predict whether or not a player was an efficient scorer (above or below league-average TS%), because I was interested in further exploring the relationship between scoring efficiency, scoring volume (as represented by minutes, more minutes = more opportunities to score), and overall value (approximated by RWAR). While controlling for Minutes, every one point increase in RWAR predicted the odds of the player being an efficient scorer as being multiplied by 1.8272. Meanwhile, while controlling for RWAR, every one minute extra a player plays yields the odds of the player being an efficient scorer as being multiplied by 0.9984 (a very slight decrease). 
+
+To visualize, the odds of a player being efficient or inefficient, I created a log odds density plot which shows the odds of an inefficient scorer at different prediction ranges. There is some noticeable overlap, which shows the imperfection of the predictions. However, there is noticeable separation, especially between the peaks of each density map. 
+
+This model had an accuracy of 0.685, meaning that 68.5% of the predictions were correct. The model had a sensitivity of 0.678, meaning that 67.8% of inefficient scorers were correctly predicted as inefficient. The specificity was 0.693, meaning that 69.3% of efficient scorers were correctly classified as efficient. The precision of the model was 0.686, meaning that 68.6% of players predicted to be inefficient were actually inefficient. The AUC for this model (the odds that a randomly selected efficient player would have a higher predicted probability of being efficient than a randomly selected inefficient player) is 0.755, which is fairly strong.
+
+I plotted an ROC curve to map the relationship between sensitivity and specificity. The AUC calculated from this curve is 0.540, which is fairly poor, meaning that predicting the efficiency of a player relative to league average is difficult when solely given RWAR and Minutes. 
+
+# Part 6: Logistic Regression II
+```{r}
+set.seed(1234)
+fit <- glm(EfficientScorer~Position + Age + Team + `3PAr` + FTr + `TRB%` + `AST%` + `TOV%`, data=PlayerDataFinal, family = binomial(link = "logit"))
+exp(coef(fit))
+probs <- predict(fit, type="response")
+class_diag(probs,PlayerDataFinal$EfficientScorer)
+table(predict=as.numeric(probs>.5),truth=PlayerDataFinal$EfficientScorer) %>% addmargins
+k=10
+data<-PlayerDataFinal[sample(nrow(PlayerDataFinal)),]
+folds<-cut(seq(1:nrow(PlayerDataFinal)),breaks=k,labels=F)
+diags<-NULL
+for(i in 1:k){
+  train<-data[folds!=i,]
+  test<-data[folds==i,]
+  truth<-test$EfficientScorer
+  fit2 <- glm(EfficientScorer~Position + Age + Team + `3PAr` + FTr + `TRB%` + `AST%` + `TOV%`, data=train, family = binomial(link = "logit"))
+  probs<-predict(fit2,newdata = test,type="response")
+  diags<-rbind(diags,class_diag(probs,truth))
+}
+summarize_all(diags,mean)
+PlayerDataUpdated <- select(PlayerDataFinal, c(3:5, 8:13))
+PlayerDataUpdated <- PlayerDataUpdated %>% mutate(OnBrooklyn=ifelse(Team == "BRK", 1, 0))
+```
+
+```{r, include=FALSE}
+model.matrix(EfficientScorer~.,data=PlayerDataUpdated)[,-1]
+y<-as.matrix(PlayerDataUpdated$EfficientScorer)
+x<-model.matrix(EfficientScorer~.,data=PlayerDataUpdated)[,-1]
+```
+
+```{r}
+cv <- cv.glmnet(x,y)
+cv<-cv.glmnet(x,y,family="binomial")
+lasso<-glmnet(x,y,family="binomial",lambda=cv$lambda.1se)
+coef(lasso)
+k=10
+data<-PlayerDataUpdated[sample(nrow(PlayerDataUpdated)),]
+folds<-cut(seq(1:nrow(PlayerDataUpdated)),breaks=k,labels=F)
+diags<-NULL
+for(i in 1:k){
+  train<-data[folds!=i,]
+  test<-data[folds==i,]
+  truth<-test$EfficientScorer
+  fit3 <- glm(EfficientScorer~FTr + `TRB%` + OnBrooklyn, data=train, family = binomial(link = "logit"))
+  probs<-predict(fit3,newdata = test,type="response")
+  diags<-rbind(diags,class_diag(probs,truth))
+}
+summarize_all(diags,mean)
+```
+
+
+
+I created one last logistic regression for the efficient scorer variable, and I used every other explanatory variable not used in the previous model, with the exception of TS%. I left this one out, because the efficient scorer variable is directly created from TS%, so it would effectively be like using the response variable as an explanatory variable, which doesn't give very much insight on things.
+
+This model had an accuracy of 0.800, meaning that 80.0% of the predictions were correct. The model had a sensitivity of 0.816, meaning that 81.6% of inefficient scorers were correctly predicted as inefficient. The specificity was 0.784, meaning that 78.4% of efficient scorers were correctly classified as efficient. The precision of the model was 0.789, meaning that 78.9% of players predicted to be inefficient were actually inefficient. The AUC for this model (the odds that a randomly selected efficient player would have a higher predicted probability of being efficient than a randomly selected inefficient player) is 0.875, which is very strong.
+
+Additionally, I performed 10 fold CV on this model and recorded the same five numbers. With an accuracy of 0.619, a sensitivity of 0.604, a specificity of 0.654, a precision of 0.631, and an AUC of 0.691 (moderately weak), all metrics for this were significantly lower than in the original model, suggesting that 10 fold CV, in this case, is much less effective to predict whether a player is an efficient scorer.
+
+After performing a LASSO on this model, I found that only three of the variables were retained. Two of them were expected: free throw rate (free throws are uncontested shots which are easy to make) and rebounding percentage (players who are closer to the rim more often will take higher percentage shots). However, funnily enough, the final variable was whether or not the player was on the Brooklyn Nets. The Nets this year are well known to have an unprecedented amount of offensive stars, and it is apparently so dramatic that it made being on that team a valid indicator of player efficiency. 
+
+When running the model a final time with just these variables, the CV was slightly (but noticeably) higher than the previous CV for all values mentioned, with the notable exception of sensitivity which actually decreased from 0.604 to 0.527. However, all values were lower than those for the original logistic regression performed at the start of this section.
