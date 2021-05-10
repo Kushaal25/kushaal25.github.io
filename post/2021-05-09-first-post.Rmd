@@ -1,0 +1,33 @@
+---
+title: "First Post!"
+author: "Kushaal Vaidya"
+date: '2021-05-09'
+slug: first-post
+categories: []
+tags: []
+description: ''
+---
+# Overview
+This post is written to show how, through reticulate, Python and R can communicate with each other!
+
+# Purpose
+Using Python and R together can be extremely useful in many situations. Combining the statistical tools and packages in R with the large variety of code structures in Python creates an immensely versatile tool which can be used to successfully analyze all types of data.
+
+# Code
+As a simple example, let's create a single sentence using both Python and R language. Firstly, we can call the reticulate library and write the first part of the message in r, saving it as "message1".
+```{r}
+library(reticulate)
+message1 <- "This is written through"
+```
+
+Next, we can write the second part of the message in Python. Using the print tool in Python we can combine the first part of the sentence (using "r." before the saved message) with the second part to create the full sentence.
+```{python}
+message2="Python and R!"
+print(r.message1, message2)
+```
+
+Finally, we can also print the full sentence in r, by concatenating both the r half of the message, and the python half (using "py$" before the saved message).
+```{r}
+cat(c(message1,py$message2))
+```
+

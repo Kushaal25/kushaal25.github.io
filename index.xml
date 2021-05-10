@@ -5,7 +5,19 @@
     <link>/</link>
     <description>Recent content on Kushaal Vaidya</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-US</language><atom:link href="/index.xml" rel="self" type="application/rss+xml" />
+    <language>en-US</language>
+    <lastBuildDate>Sun, 09 May 2021 00:00:00 +0000</lastBuildDate><atom:link href="/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>First Post!</title>
+      <link>/post/2021/05/09/first-post/</link>
+      <pubDate>Sun, 09 May 2021 00:00:00 +0000</pubDate>
+      
+      <guid>/post/2021/05/09/first-post/</guid>
+      <description>Overview This post is written to show how, through reticulate, Python and R can communicate with each other!
+ Purpose Using Python and R together can be extremely useful in many situations. Combining the statistical tools and packages in R with the large variety of code structures in Python creates an immensely versatile tool which can be used to successfully analyze all types of data.
+ Code As a simple example, let’s create a single sentence using both Python and R language.</description>
+    </item>
+    
     <item>
       <title>Project 1: Exploratory Data Analysis</title>
       <link>/project/project1/</link>
