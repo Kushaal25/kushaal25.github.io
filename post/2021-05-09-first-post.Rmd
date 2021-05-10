@@ -10,6 +10,8 @@ description: ''
 # Overview
 This post is written to show how, through reticulate, Python and R can communicate with each other!
 
+![](/post/2021-05-09-first-post_files/Cognitive Fatigue.jpeg)
+
 # Purpose
 Using Python and R together can be extremely useful in many situations. Combining the statistical tools and packages in R with the large variety of code structures in Python creates an immensely versatile tool which can be used to successfully analyze all types of data.
 
